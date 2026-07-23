@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background: #000;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Give OpenStreetMap tiles a subtle dark, desaturated look to match the
+   rest of the UI, in the spirit of Apple's dark-mode Maps style. */
+.map-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(1.05) saturate(0.6);
+}
+
+.leaflet-container {
+  background: #0a0a0a !important;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}

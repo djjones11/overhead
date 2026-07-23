@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    container_name: overhead-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - overhead-data:/app/data
+      - overhead-photo-cache:/app/app/cache
+    ports:
+      - "8000:8000" # exposed directly too, handy for local API debugging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build: ./frontend
+    container_name: overhead-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  overhead-data:
+  overhead-photo-cache:

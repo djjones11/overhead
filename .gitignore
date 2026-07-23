@@ -1,0 +1,18 @@
+# --- General -----------------------------------------------------------------
+.env
+*.log
+.DS_Store
+
+# --- Backend -------------------------------------------------------------------
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+backend/data/*.db
+backend/app/cache/photos/*
+!backend/app/cache/photos/.gitkeep
+backend/app/cache/*.json
+
+# --- Frontend --------------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
