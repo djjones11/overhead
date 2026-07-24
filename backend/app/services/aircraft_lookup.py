@@ -81,15 +81,51 @@ class AircraftLookupService:
                 resp = await client.get(f"https://hexdb.io/api/v1/route/icao/{callsign}")
                 if resp.status_code == 200 and resp.text.strip():
                     data = resp.json()
-                    result = {
-                        "origin": _airport_from_hexdb(data, "Origin"),
-                        "destination": _airport_from_hexdb(data, "Destination"),
-                    }
+                    # hexdb.io returns e.g. {"flight": "EIN17A", "route": "EIDW-EGLL", ...}
+                    # A 404 comes back as {"status": "404", "error": "Route not found."}
+                    # with no "route" key, which the .get() below naturally handles.
+                    leg_codes = [code for code in (data.get("route") or "").split("-") if code]
+                    if len(leg_codes) >= 2:
+                        origin_icao, destination_icao = leg_codes[0], leg_codes[-1]
+                        result = {
+                            "origin": await self._get_airport(client, origin_icao),
+                            "destination": await self._get_airport(client, destination_icao),
+                        }
         except (httpx.HTTPError, ValueError) as exc:
             logger.debug("Route lookup failed for %s: %s", callsign, exc)
 
         await self._route_cache.set(callsign, result)
         return result
+
+    async def _get_airport(self, client: httpx.AsyncClient, icao: str) -> dict | None:
+        """Resolve an ICAO airport code to name/city/IATA, with its own cache.
+
+        Airport data almost never changes, so this shares the long-lived
+        metadata cache rather than the shorter-lived route cache.
+        """
+        cache_key = f"airport:{icao}"
+        cached = await self._metadata_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        airport = None
+        try:
+            resp = await client.get(f"https://hexdb.io/api/v1/airport/icao/{icao}")
+            if resp.status_code == 200 and resp.text.strip():
+                data = resp.json()
+                if data.get("icao"):
+                    airport = {
+                        "icao": data.get("icao"),
+                        "iata": data.get("iata"),
+                        "name": data.get("airport"),
+                        "city": data.get("region_name"),
+                        "country": data.get("country_code"),
+                    }
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.debug("Airport lookup failed for %s: %s", icao, exc)
+
+        await self._metadata_cache.set(cache_key, airport)
+        return airport
 
     @staticmethod
     def looks_military(callsign: str | None, icao24: str | None) -> bool:
@@ -106,16 +142,3 @@ class AircraftLookupService:
         model_upper = model.upper()
         helicopter_markers = ("H145", "H135", "H160", "AS350", "AS365", "EC1", "R44", "R66", "S-76", "S76", "UH-", "AW1")
         return any(marker in model_upper for marker in helicopter_markers)
-
-
-def _airport_from_hexdb(data: dict, prefix: str) -> dict | None:
-    icao = data.get(f"{prefix}ICAO") or data.get(f"{prefix.lower()}_icao")
-    if not icao:
-        return None
-    return {
-        "icao": icao,
-        "iata": data.get(f"{prefix}IATA") or data.get(f"{prefix.lower()}_iata"),
-        "name": data.get(f"{prefix}Name") or data.get(f"{prefix.lower()}_name"),
-        "city": data.get(f"{prefix}City") or data.get(f"{prefix.lower()}_city"),
-        "country": None,
-    }

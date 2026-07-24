@@ -25,7 +25,15 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..database import SessionLocal, Sighting
-from ..schemas import AircraftPhoto, AirlineInfo, AirportInfo, HomeLocation, OverheadResponse, SelectedAircraft
+from ..schemas import (
+    AircraftPhoto,
+    AirlineInfo,
+    AirportInfo,
+    HomeLocation,
+    OverheadResponse,
+    RadarBlip,
+    SelectedAircraft,
+)
 from .adsb import ProviderUnavailable, get_provider
 from .aircraft_lookup import AircraftLookupService
 from .airline import flight_number_from_callsign, resolve_airline
@@ -125,10 +133,25 @@ class AircraftTracker:
 
         selected = await self._build_selected(best) if best else None
 
+        radar = [
+            RadarBlip(
+                icao24=c.raw.icao24,
+                callsign=c.raw.callsign,
+                distance_km=round(c.distance_km, 3),
+                bearing_from_home_deg=round(c.bearing_from_home_deg, 1),
+                altitude_ft=c.raw.altitude_ft,
+                heading_deg=c.raw.heading_deg,
+                is_approaching=c.approaching,
+                is_selected=(best is not None and c.raw.icao24 == best.raw.icao24),
+            )
+            for c in candidates
+        ]
+
         response = OverheadResponse(
             home=HomeLocation(latitude=settings.home_lat, longitude=settings.home_lon, radius_km=settings.radius_km),
             aircraft=selected,
             candidate_count=len(candidates),
+            radar=radar,
             server_time=_now_iso(),
             provider=self.provider.name,
             provider_ok=provider_ok,

@@ -65,10 +65,27 @@ class HomeLocation(BaseModel):
     radius_km: float
 
 
+class RadarBlip(BaseModel):
+    """A lightweight representation of one in-range aircraft for the radar
+    view - deliberately minimal (no photo/airline lookups) since there can
+    be several of these per poll and they're rendered as simple dots.
+    """
+
+    icao24: str
+    callsign: str | None = None
+    distance_km: float
+    bearing_from_home_deg: float
+    altitude_ft: float | None = None
+    heading_deg: float | None = None
+    is_approaching: bool
+    is_selected: bool = False
+
+
 class OverheadResponse(BaseModel):
     home: HomeLocation
     aircraft: SelectedAircraft | None = None
     candidate_count: int = 0
+    radar: list[RadarBlip] = []
     server_time: str
     provider: str
     provider_ok: bool = True
